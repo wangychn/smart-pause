@@ -92,6 +92,7 @@ class FaceApp(FaceDetectionMXA):
     def process_face(self, *ofmaps):
         (original_frame, padding) = self.capture_queue.get()
         dets, face_roi = self._postprocess(ofmaps, padding, (self.input_width, self.input_height))
+ 
         # Pass the original frame along with the ROI
         return (original_frame, face_roi) if dets else None
 
@@ -121,7 +122,8 @@ class App:
 
         self.video_state = 'PLAYING'
         self.last_seen_paying_attention = time.time()
-        self.YAW_THRESHOLD = 20
+        self.YAW_UPPER = 70
+        self.YAW_LOWER = 10
         self.ATTENTION_GRACE_PERIOD = 2.0
         self.keyboard = Controller()
         self.PLAYBACK_KEY = Key.space
@@ -134,6 +136,7 @@ class App:
     def process_face(self, *ofmaps):
         # This callback now only decides what the next step is.
         result = self.face_app.process_face(*ofmaps)
+
         if result:
             original_frame, face_roi = result
             # If a face is found, queue it for the landmark model
@@ -142,6 +145,8 @@ class App:
         else:
             # If NO face, call the final controller directly with no landmark data
             # Note: no original_frame available here; skip UI until next frame
+            # print("NOOOOO")
+            self.control_playback(0)
             return None
 
     def generate_frame_landmark(self):
@@ -192,8 +197,8 @@ class App:
 
     def control_playback(self, yaw):
         current_time = time.time()
-        is_paying_attention = abs(yaw) < self.YAW_THRESHOLD
-
+        is_paying_attention = yaw < self.YAW_UPPER and yaw > self.YAW_LOWER
+        # print(is_paying_attention)
         if is_paying_attention:
             self.last_seen_paying_attention = current_time
             if self.video_state == 'PAUSED':
