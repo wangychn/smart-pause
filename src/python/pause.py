@@ -184,7 +184,7 @@ class App:
             thickness=3
         )
         output_image = render_to_image(render_data, Image.fromarray(frame))
-        cv_image = np.array(output_image)
+        cv_image = np.array(output_image)      
         cv.putText(cv_image, f"Yaw: {round(yaw, 2)}", (20, 40),
                    cv.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 0), 2)
         cv.imshow('Smart Pauser', cv_image)
@@ -243,7 +243,7 @@ if __name__ == '__main__':
     print("Starting Smart Pauser. Press 'ESC' in the display window to quit.")
     print("Switching windows in 3 seconds...")
     time.sleep(3)
-
+  
     run_mxa(dfp_path)
 
     cam.release()
