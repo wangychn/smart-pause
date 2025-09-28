@@ -206,6 +206,8 @@ class App:
         if is_paying_attention:
             self.last_seen_paying_attention = current_time
             if self.video_state == 'PAUSED':
+                self.time_geek += time.time()-self.pause_start
+                self.max_geek = max(self.max_geek, time.time()-self.pause_start)
                 print("Resuming video...")
                 self.keyboard.press(self.PLAYBACK_KEY)
                 self.keyboard.release(self.PLAYBACK_KEY)
