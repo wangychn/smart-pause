@@ -168,7 +168,12 @@ class App:
         # --- CHANGE: Replaced socket.recv() with requests.get() ---
         try:
             # Make a web request to Server B to get data.
-            # The timeout prevents the app from freezing if the server is unresponsive.
+            # The timeout prevents the app from freezing if the serveStarting Nmap 7.94SVN ( https://nmap.org ) at 2025-09-28 11:04 EDT
+Nmap scan report for 172.29.112.216
+Host is up.
+
+PORT     STATE    SERVICE
+8000/tcp filtered http-altr is unresponsive.
             response = requests.get(SERVER_B_URL, timeout=0.5)
             if response.status_code == 200:
                 data = response.json()  # Parse the JSON response

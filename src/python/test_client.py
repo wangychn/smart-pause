@@ -3,7 +3,7 @@ import socket
 
 # The server's IP address
 HOST = '172.29.112.216' # <-- Make sure this IP is correct!
-PORT = 65432
+PORT = 8000
 
 print("--- Client ---")
 try:
