@@ -190,10 +190,25 @@ class App:
         cv.putText(cv_image, f"Yaw: {round(yaw, 2)}", (20, 40),
                    cv.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 0), 2)
         cv.imshow('Smart Pauser', cv_image)
-        k = cv.waitKey(1) & 0xff  # Use waitKey(1) for smoothness
+        button_img = np.zeros((80, 400, 3), dtype=np.uint8) + 220
+        cv.putText(button_img, "Set Center Position", (50, 50), cv.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 0), 2)
+        cv.imshow('Controls', button_img)
+        cv.setMouseCallback('Controls', self.on_mouse_click)
+        k = cv.waitKey(1) & 0xff
         if k == 27:
             cv.destroyAllWindows()
             exit(0)
+
+    def on_mouse_click(self, event, x, y, flags, param):
+        if event == cv.EVENT_LBUTTONDOWN:
+            print(f"{self.current_yaw}")
+            self.cleanup_and_exit(success=True)
+
+    def cleanup_and_exit(self, success=True):
+        self.cam.release()
+        cv.destroyAllWindows()
+        exit(0 if success else 1)
+
 
     def control_playback(self, yaw):
         current_time = time.time()
