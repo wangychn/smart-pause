@@ -236,11 +236,11 @@ class App:
         else:
             if self.video_state == 'PLAYING' and \
                (time.time() - self.last_seen_paying_attention) > self.ATTENTION_GRACE_PERIOD:
-                self.num_geeked += 1
                 self.time_locked += time.time() - self.last_seen_paying_attention
                 self.pause_start = time.time()
                 self.keyboard.press(self.PLAYBACK_KEY)
                 self.keyboard.release(self.PLAYBACK_KEY)
+                self.num_geeked += 1  
                 self.video_state = 'PAUSED'
 
 def run_mxa(app, dfp):
