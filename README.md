@@ -56,6 +56,7 @@ pip3 install --upgrade pip wheel
 #### 3. Install essential packages
 ```bash
 pip install opencv-python==4.11.0.86
+pip install pynput==1.8.1
 pip install -r requirements.txt
 pip3 install --extra-index-url https://developer.memryx.com/pip memryx
 ```
