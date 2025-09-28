@@ -28,8 +28,6 @@ It uses real-time **facial landmark tracking** (via Memryx acceleration + FDLite
 - Memryx AI Acceleration  
   Efficient, low-latency inference using Memryx’s `AsyncAccl`.
 
-- Multithreaded Communication
-  Socket usage allows for easy GUI interfacing through parent and child threads.
 
 ## Frontend Layout
 
