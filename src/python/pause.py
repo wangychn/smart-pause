@@ -22,7 +22,7 @@ stop_event = threading.Event()
 accl_ref = None
 SERVER_A_IP = '127.0.0.1'
 # --- CHANGE: Replaced SERVER_B_IP and PORT with a full URL ---
-SERVER_B_URL = 'http://172.29.112.216:8000/get_data'
+SERVER_B_URL = 'https://sicklily-legible-marline.ngrok-free.dev'
 SOCKET_A_PORT = 65432
 
 # --- Part 1: The "Eyes" - Head Pose Estimation (Unchanged) ---
