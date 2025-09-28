@@ -8,6 +8,7 @@ import socket
 import json
 import time
 from collections import deque
+import signal
 
 # --- Configuration ---
 SCRIPT_DIR = os.path.dirname(os.path.realpath(__file__))
@@ -31,6 +32,7 @@ class AppRunner:
         self.server_socket: socket.socket | None = None
         self.client_connection: socket.socket | None = None
 
+        self.live_stats = {}  # <-- Stores the latest stats
         self.live_stats_lines = deque(maxlen=5)
 
         # --- Main layout containers ---
@@ -152,42 +154,89 @@ class AppRunner:
             self.root.after(0, self.log, f"[ERROR] Server/Client launch failed: {e}\n")
             self.root.after(0, self._on_process_exit)
 
+    # ==============================================================================
+    # == THIS IS THE UPDATED METHOD THAT PARSES YOUR SPECIFIC STRING FORMAT ==
+    # ==============================================================================
     def listen_for_messages(self):
         buffer = ""
         try:
             while self.client_connection:
                 data = self.client_connection.recv(1024).decode('utf-8')
                 if not data: break
-                # Log the raw data to the UI instead of printing to the console
-                self.return_data = data
-                # self.root.after(0, self.log, f"RAW: {data.stri  p()}\n")
+                
                 buffer += data
                 while '\n' in buffer:
                     message, buffer = buffer.split('\n', 1)
+                    message = message.strip()
+                    if not message: continue
+
                     try:
-                        payload = json.loads(message)
-                        self.root.after(0, self.update_live_output, payload)
-                    except json.JSONDecodeError:
-                        self.root.after(0, self.log, f"JSON ERROR: Could not decode '{message}'\n")
+                        stats_dict = {}
+                        # Split the message by commas to get each key-value pair
+                        parts = message.split(',')
+                        
+                        for part in parts:
+                            part = part.strip()
+                            if not part: continue
+
+                            # The server will try to split by ':' first
+                            if ':' in part:
+                                key, value = part.split(':', 1)
+                            # If no ':', it will handle the "Key Key Value" format
+                            # by splitting just once from the right on the space
+                            else:
+                                try:
+                                    key, value = part.rsplit(' ', 1)
+                                except ValueError:
+                                    # This will skip any parts that don't have a space (e.g., just "Error")
+                                    continue
+                            
+                            stats_dict[key.strip()] = value.strip()
+                        
+                        if stats_dict:
+                            self.live_stats = stats_dict
+                            self.root.after(0, self.update_live_output)
+                        else:
+                             # If nothing could be parsed, log the raw message
+                            self.root.after(0, self.log, f"Unparsed message: {message}\n")
+
+                    except Exception as e:
+                        self.root.after(0, self.log, f"[PARSE ERROR] for '{message}': {e}\n")
+
         except (ConnectionResetError, OSError):
              self.log("[INFO] Client connection closed.\n")
         finally:
             self.root.after(0, self._on_process_exit)
 
-    def update_live_output(self, payload: dict):
-        if log_message := payload.get("log"): self.log(log_message + '\n')
-        if stats := payload.get("stats"):
-            self.live_stats_lines.clear()
-            for key, value in stats.items():
-                self.live_stats_lines.append(f"{key:<20}: {value}")
-            self.stats_display.config(text="\n".join(self.live_stats_lines))
+    def update_live_output(self):
+        """Updates the stats display using data from self.live_stats."""
+        self.live_stats_lines.clear()
+        # Read directly from the class attribute
+        for key, value in self.live_stats.items():
+            self.live_stats_lines.append(f"{key:<20}: {value}")
+        self.stats_display.config(text="\n".join(self.live_stats_lines))
             
     def _on_process_exit(self):
-        self.log("\n[INFO] Pauser script has exited.\n")
+        self.log("\n[INFO] Pauser script has exited or is being terminated.\n")
         self.status_label.config(text="Status: Not running", fg="black")
+        
+        # Close network connections first
         if self.client_connection: self.client_connection.close(); self.client_connection = None
-        if self.server_socket: self.server_socket.close(); self.server_socket = None
-        if self.process and self.process.poll() is None: self.process.terminate()
+        if self.server_socket: self.server_socket.close();   self.server_socket = None
+        
+        # --- New logic to terminate ONLY the subprocess ---
+        if self.process and self.process.poll() is None:
+            self.log("[INFO] Attempting to terminate the pause.py subprocess...\n")
+            self.process.terminate()
+            try:
+                self.process.communicate(timeout=1.0)
+                self.log("[INFO] Subprocess terminated gracefully.\n")
+            except subprocess.TimeoutExpired:
+                self.log("[WARN] Subprocess did not respond. Forcing kill...\n")
+                self.process.kill()
+                self.process.communicate()
+
+        # Reset state
         self.process = None
         self._reset_buttons_to_idle()
 
@@ -211,9 +260,22 @@ class AppRunner:
         self.resume_button.config(state=tk.DISABLED)
         self.pause_button.config(state=tk.NORMAL)
 
-    def kill_script(self):  
-        self.status_label.config(text=f"Status: Terminating... \n{self.return_data}", fg="red")
+    def kill_script(self):
+        """Initiates a shutdown of the client process and cleans up all resources."""
+        self.status_label.config(text="Status: Terminating...", fg="red")
+        
+        if not self.process and not self.client_connection:
+            self.log("[INFO] Kill command ignored: No process is active.\n")
+            self.status_label.config(text="Status: Not running", fg="black")
+            return
+
+        self.log("[INFO] Displaying final stats before shutdown...\n")
+        self.update_live_output()
+        self.root.update_idletasks() # Force the GUI to redraw immediately.
+
+        self.log("[INFO] Sending shutdown command to client...\n")
         self.send_command("shutdown")
+        self._on_process_exit()
 
     def stop_program(self):
         try:
@@ -226,4 +288,3 @@ if __name__ == "__main__":
     root = tk.Tk()
     app = AppRunner(root)
     root.mainloop()
-
