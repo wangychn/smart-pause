@@ -129,6 +129,10 @@ class App:
         self.PLAYBACK_KEY = Key.space
         self.start_time = time.time()
         self.WARMUP_PERIOD = 3.0
+        self.time_geek = 0.0
+        self.num_geeked = 0
+        self.max_geek = 0.0
+        self.pause_start = time.time()
 
     def generate_frame_face(self):
         return self.face_app.generate_frame()
@@ -202,6 +206,8 @@ class App:
         if is_paying_attention:
             self.last_seen_paying_attention = current_time
             if self.video_state == 'PAUSED':
+                self.time_geek += time.time()-self.pause_start
+                self.max_geek = max(self.max_geek, time.tie()-self.pause_start)
                 print("Resuming video...")
                 self.keyboard.press(self.PLAYBACK_KEY)
                 self.keyboard.release(self.PLAYBACK_KEY)
@@ -210,6 +216,8 @@ class App:
             if self.video_state == 'PLAYING' and \
                (current_time - self.last_seen_paying_attention) > self.ATTENTION_GRACE_PERIOD:
                 print(f"Pausing video (Yaw: {round(yaw, 2)})...")
+                self.num_geeked += 1
+                self.pause_start = time.time()
                 self.keyboard.press(self.PLAYBACK_KEY)
                 self.keyboard.release(self.PLAYBACK_KEY)
                 self.video_state = 'PAUSED'
