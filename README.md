@@ -46,14 +46,23 @@ git clone https://github.com/wangychn/smart-pause.git
 cd smart-pause
 ```
 
-#### 2. Create environment
+#### 2. Create environment; ensure open cv is installed
 ```bash
 python3 -m venv venv
 source venv/bin/activate
-pip install -r requirements.txt
-```
+pip3 install --upgrade pip wheel
 
-#### 3. Run the app
+```
+#### 3. Install essential packages
+```bash
+pip install opencv-python==4.11.0.86
+pip install -r requirements.txt
+pip3 install --extra-index-url https://developer.memryx.com/pip memryx
+```
+Note that this project uses Memryx tools; please check out their setup guide for more info!
+https://developer.memryx.com/get_started/install_tools.html
+
+#### 4. Run the app! Enjoy!
 ```bash
 python src/python/interface.py
 ```
