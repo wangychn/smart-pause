@@ -15,10 +15,11 @@ from memryx import AsyncAccl
 import threading
 import signal
 import os, traceback
-
+import socket
 stop_event = threading.Event()
 accl_ref = None  # so we can stop it later if API allows
-
+HOST = '127.0.0.1'  # Localhost
+PORT = 65432  
 # --- Part 1: The "Eyes" - Head Pose Estimation ---
 def get_head_pose(landmarks, frame_shape):
     """
@@ -127,13 +128,27 @@ class App:
         self.YAW_THRESHOLD = 20 
         self.yaw_lower_bound = center_yaw - self.YAW_THRESHOLD
         self.yaw_upper_bound = center_yaw + self.YAW_THRESHOLD
-        print("lower: ", self.yaw_lower_bound)  
-        print("upper: ", self.yaw_upper_bound)
         self.ATTENTION_GRACE_PERIOD = 2.0
         self.keyboard = Controller()
         self.PLAYBACK_KEY = Key.space
         self.start_time = time.time()
         self.WARMUP_PERIOD = 3.0
+        self.time_geeked = 0.0
+        self.time_locked = 0.0
+        self.num_geeked = 0
+        self.max_geek = 0.0
+        self.pause_start = time.time()
+                # Initialize socket
+        self.socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        self.socket.connect((HOST, PORT))  # connect to the server (host, port)
+
+    def send_data(self, data):
+        """Helper method to send data over the socket."""
+        try:
+            self.socket.sendall(data.encode('utf-8'))
+        except Exception as e:
+            print(f"Error sending data: {e}")
+
 
     def generate_frame_face(self):
         return self.face_app.generate_frame()
@@ -200,22 +215,26 @@ class App:
             exit(0)
 
     def control_playback(self, yaw):
-        current_time = time.time()
         is_paying_attention = yaw < self.yaw_upper_bound and yaw > self.yaw_lower_bound
         # print(is_paying_attention)
         if is_paying_attention:
-            self.last_seen_paying_attention = current_time
+            
             if self.video_state == 'PAUSED':
-                self.time_geek += time.time()-self.pause_start
+                self.send_data(f"Resuming video... Time Locked {self.time_locked}, Time Geeked: {self.time_geeked}, Max Geek: {self.max_geek}, Num Geeked: {self.num_geeked}")
+                self.last_seen_paying_attention = time.time()
+                self.time_geeked += time.time()-self.pause_start
                 self.max_geek = max(self.max_geek, time.time()-self.pause_start)
-                print("Resuming video...")
+                # print("Resuming video...")
                 self.keyboard.press(self.PLAYBACK_KEY)
                 self.keyboard.release(self.PLAYBACK_KEY)
                 self.video_state = 'PLAYING'
         else:
             if self.video_state == 'PLAYING' and \
-               (current_time - self.last_seen_paying_attention) > self.ATTENTION_GRACE_PERIOD:
-                print(f"Pausing video (Yaw: {round(yaw, 2)})...")
+               (time.time() - self.last_seen_paying_attention) > self.ATTENTION_GRACE_PERIOD:
+                # print(f"Pausing video (Yaw: {round(yaw, 2)})...")
+                self.num_geeked += 1
+                self.time_locked += time.time()-self.last_seen_paying_attention
+                self.pause_start = time.time()
                 self.keyboard.press(self.PLAYBACK_KEY)
                 self.keyboard.release(self.PLAYBACK_KEY)
                 self.video_state = 'PAUSED'
@@ -224,7 +243,7 @@ class App:
 def run_mxa(dfp):
     global accl_ref
     try:
-        print(f"[run_mxa] loading DFP: {dfp}  exists={os.path.exists(dfp)}")
+        # print(f"[run_mxa] loading DFP: {dfp}  exists={os.path.exists(dfp)}")
         accl = AsyncAccl(dfp)
         accl_ref = accl
 
@@ -234,15 +253,15 @@ def run_mxa(dfp):
         accl.connect_output(app.process_face)                    # output 0
         accl.connect_output(app.process_landmark, 1)             # output 1
 
-        print("[run_mxa] entering wait()")
+        # print("[run_mxa] entering wait()")
         accl.wait()  # blocks inside the worker thread
-        print("[run_mxa] wait() returned (pipeline ended)")
+        # print("[run_mxa] wait() returned (pipeline ended)")
 
     except Exception as e:
-        print("[run_mxa] EXCEPTION:", e)
+        # print("[run_mxa] EXCEPTION:", e)
         traceback.print_exc()
     finally:
-        print("[run_mxa] cleanup")
+        # print("[run_mxa] cleanup")
         cv.destroyAllWindows()
 
 def start_pipeline(dfp_path):
@@ -263,27 +282,27 @@ def stop_pipeline():
 
 if __name__ == '__main__':
     if len(sys.argv) < 2:
-        print("Error: Calibrated center yaw value must be provided.", file=sys.stderr)
+        # print("Error: Calibrated center yaw value must be provided.", file=sys.stderr)
         exit(1)
     
     try:
         calibrated_yaw = float(sys.argv[1])
     except ValueError:
-        print(f"Error: Invalid yaw value provided '{sys.argv[1]}'. Must be a number.", file=sys.stderr)
+        # print(f"Error: Invalid yaw value provided '{sys.argv[1]}'. Must be a number.", file=sys.stderr)
         exit(1)
     cam = cv.VideoCapture(0)
     if not cam.isOpened():
-        print("Error: Cannot open camera.")
+        # print("Error: Cannot open camera.")
         exit()
 
     app = App(cam, calibrated_yaw )
     dfp_path = "models/models.dfp"
 
-    print("Starting Smart Pauser. Press 'ESC' in the display window to quit.")
-    print("Switching windows momentarily...")
+    # print("Starting Smart Pauser. Press 'ESC' in the display window to quit.")
+    # print("Switching windows momentarily...")
     time.sleep(1)
   
-    print("Starting Smart Pauser…")
+    # print("Starting Smart Pauser…")
     thread = start_pipeline(dfp_path)
 
     try:
