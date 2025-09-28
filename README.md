@@ -1,21 +1,59 @@
 # Smart Pause
-This project 
 
-## Frontend
+<p align="center">
+  <img src="https://img.shields.io/badge/Python-3.12-blue?logo=python" alt="Python">
+  <img src="https://img.shields.io/badge/OpenCV-4.x-green?logo=opencv" alt="OpenCV">
+  <img src="https://img.shields.io/badge/Tkinter-GUI-orange" alt="Tkinter">
+  <img src="https://img.shields.io/badge/Memryx-AI%20Accelerator-purple" alt="Memryx">
+  <img src="https://img.shields.io/badge/FDLite-Face%20Detection-pink" alt="FDLite">
+</p>
 
-Frontend will be simple. 
-- Display for the webcam tracking
-- Button for starting the model 
-    - This is when you are watching your lecture
-- Pause button
-- End button; show % focus and misc. information
+**Smart Pause** is a desktop application that helps you stay focused during lectures or study sessions! 
+It uses real-time **facial landmark tracking** (via Memryx acceleration + FDLite models) to detect your head orientation and automatically pause/resume playback when you’re distracted.  
 
-## Additional
+*This project was made during MHacks 2025.*
 
-In case you need to get the compiled model again:
 
+## ✨ Features
+
+- Webcam Tracking  
+  Real-time facial landmark detection to monitor head yaw.
+
+- Interactive GUI  
+  Built with Tkinter: start, pause, resume, and terminate your session with a click.
+
+- Focus Metrics  
+  On session end, view % focus and tracked stats.
+
+- Memryx AI Acceleration  
+  Efficient, low-latency inference using Memryx’s `AsyncAccl`.
+
+
+## Frontend Layout
+
+- Live webcam feed with overlay of detected landmarks.
+- Control panel with buttons:
+  - Start Model → Begin lecture mode.  
+  - Pause / Resume → Manually override detection.  
+  - End Session → Stop and show statistics.
+
+
+## Usage
+
+### 1. Clone repo
 ```bash
-mkdir models && cd models
-wget https://developer.memryx.com/example_files/2p0/mediapipe_hands.zip
-unzip mediapipe_hands.zip
+git clone https://github.com/yourusername/smart-pause.git
+cd smart-pause
+```
+
+#### 2. Create environment
+```bash
+python3 -m venv venv
+source venv/bin/activate
+pip install -r requirements.txt
+```
+
+#### 3. Run the app
+```bash
+python src/python/interface.py
 ```
