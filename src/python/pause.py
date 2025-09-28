@@ -1,12 +1,8 @@
-# -*- coding: utf-8 -*-
-# Copyright © 2021 Patrick Levin
-# SPDX-Identifier: MIT
-
 import math
 import time
 from queue import Queue
 from typing import Optional, Sequence, List, Union  # (kept if you use them)
-
+import sys
 import cv2 as cv
 import numpy as np
 from PIL import Image
@@ -112,7 +108,7 @@ class LandmarkApp(FaceLandmarkMXA):
 
 # --- Main Application Controller ---
 class App:
-    def __init__(self, cam):
+    def __init__(self, cam, center_yaw):
         self.face_app = FaceApp(cam)
         cam_size = (
             int(cam.get(cv.CAP_PROP_FRAME_WIDTH)),
@@ -122,17 +118,16 @@ class App:
 
         self.video_state = 'PLAYING'
         self.last_seen_paying_attention = time.time()
-        self.YAW_UPPER = 70
-        self.YAW_LOWER = 10
+        self.YAW_THRESHOLD = 20 
+        self.yaw_lower_bound = center_yaw - self.YAW_THRESHOLD
+        self.yaw_upper_bound = center_yaw + self.YAW_THRESHOLD
+        print("lower: ", self.yaw_lower_bound)  
+        print("upper: ", self.yaw_upper_bound)
         self.ATTENTION_GRACE_PERIOD = 2.0
         self.keyboard = Controller()
         self.PLAYBACK_KEY = Key.space
         self.start_time = time.time()
         self.WARMUP_PERIOD = 3.0
-        self.time_geek = 0.0
-        self.num_geeked = 0
-        self.max_geek = 0.0
-        self.pause_start = time.time()
 
     def generate_frame_face(self):
         return self.face_app.generate_frame()
@@ -140,7 +135,7 @@ class App:
     def process_face(self, *ofmaps):
         # This callback now only decides what the next step is.
         result = self.face_app.process_face(*ofmaps)
-
+          
         if result:
             original_frame, face_roi = result
             # If a face is found, queue it for the landmark model
@@ -149,8 +144,7 @@ class App:
         else:
             # If NO face, call the final controller directly with no landmark data
             # Note: no original_frame available here; skip UI until next frame
-            # print("NOOOOO")
-            self.control_playback(0)
+            self.control_playback(self.yaw_lower_bound-100)          
             return None
 
     def generate_frame_landmark(self):
@@ -194,35 +188,18 @@ class App:
         cv.putText(cv_image, f"Yaw: {round(yaw, 2)}", (20, 40),
                    cv.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 0), 2)
         cv.imshow('Smart Pauser', cv_image)
-        button_img = np.zeros((80, 400, 3), dtype=np.uint8) + 220
-        cv.putText(button_img, "Set Center Position", (50, 50), cv.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 0), 2)
-        cv.imshow('Controls', button_img)
-        cv.setMouseCallback('Controls', self.on_mouse_click)
-        k = cv.waitKey(1) & 0xff
+        k = cv.waitKey(1) & 0xff  # Use waitKey(1) for smoothness
         if k == 27:
             cv.destroyAllWindows()
             exit(0)
 
-    def on_mouse_click(self, event, x, y, flags, param):
-        if event == cv.EVENT_LBUTTONDOWN:
-            print(f"{self.current_yaw}")
-            self.cleanup_and_exit(success=True)
-
-    def cleanup_and_exit(self, success=True):
-        self.cam.release()
-        cv.destroyAllWindows()
-        exit(0 if success else 1)
-
-
     def control_playback(self, yaw):
         current_time = time.time()
-        is_paying_attention = yaw < self.YAW_UPPER and yaw > self.YAW_LOWER
+        is_paying_attention = yaw < self.yaw_upper_bound and yaw > self.yaw_lower_bound
         # print(is_paying_attention)
         if is_paying_attention:
             self.last_seen_paying_attention = current_time
             if self.video_state == 'PAUSED':
-                self.time_geek += time.time()-self.pause_start
-                self.max_geek = max(self.max_geek, time.tie()-self.pause_start)
                 print("Resuming video...")
                 self.keyboard.press(self.PLAYBACK_KEY)
                 self.keyboard.release(self.PLAYBACK_KEY)
@@ -231,8 +208,6 @@ class App:
             if self.video_state == 'PLAYING' and \
                (current_time - self.last_seen_paying_attention) > self.ATTENTION_GRACE_PERIOD:
                 print(f"Pausing video (Yaw: {round(yaw, 2)})...")
-                self.num_geeked += 1
-                self.pause_start = time.time()
                 self.keyboard.press(self.PLAYBACK_KEY)
                 self.keyboard.release(self.PLAYBACK_KEY)
                 self.video_state = 'PAUSED'
@@ -248,12 +223,21 @@ def run_mxa(dfp):
 
 
 if __name__ == '__main__':
+    if len(sys.argv) < 2:
+        print("Error: Calibrated center yaw value must be provided.", file=sys.stderr)
+        exit(1)
+    
+    try:
+        calibrated_yaw = float(sys.argv[1])
+    except ValueError:
+        print(f"Error: Invalid yaw value provided '{sys.argv[1]}'. Must be a number.", file=sys.stderr)
+        exit(1)
     cam = cv.VideoCapture(0)
     if not cam.isOpened():
         print("Error: Cannot open camera.")
         exit()
 
-    app = App(cam)
+    app = App(cam, calibrated_yaw )
     dfp_path = "../../models/models.dfp"
 
     print("Starting Smart Pauser. Press 'ESC' in the display window to quit.")

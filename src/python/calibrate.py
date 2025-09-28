@@ -87,7 +87,7 @@ class CalibrationApp:
     def generate_frame_face(self):
         return self.face_app.generate_frame()
 
-    def process_face(self, *ofmaps):
+    def process_face(self, *ofmaps):    
         # This callback now only decides what the next step is.
         result = self.face_app.process_face(*ofmaps)
 
@@ -149,7 +149,7 @@ class CalibrationApp:
     def cleanup_and_exit(self, success=True):
         self.cam.release()
         cv.destroyAllWindows()
-        exit(0 if success else 1)
+        os._exit(0 if success else 1)
 
 def run_mxa(app, dfp):
     accl = AsyncAccl(dfp)
