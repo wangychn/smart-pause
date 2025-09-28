@@ -23,7 +23,7 @@ accl_ref = None
 
 SERVER_A_IP = '127.0.0.1'
 SOCKET_A_PORT = 65432
-SERVER_B_URL = 'https://YOUR_NGROK_URL_HERE/get_data' # <-- IMPORTANT: Replace with your actual ngrok URL
+SERVER_B_URL = 'https://sicklily-legible-marline.ngrok-free.dev/get_data' # <-- IMPORTANT: Replace with your actual ngrok URL
 
 # --- Part 1: The "Eyes" - Head Pose Estimation ---
 def get_head_pose(landmarks, frame_shape):
@@ -49,7 +49,7 @@ def get_head_pose(landmarks, frame_shape):
         (landmarks[57].x, landmarks[57].y)    # Right mouth corner
     ], dtype=np.float64)
 
-    focal_length = frame_shape[1]
+    focal_length = frame_shape[1] 
     center = (frame_shape[1] / 2, frame_shape[0] / 2)
     camera_matrix = np.array([
         [focal_length, 0, center[0]],
@@ -139,7 +139,7 @@ class App:
         print("Connected to Server A (socket)")
 
         # Set up for the background thread to handle Server B
-        self.received_number = None
+        self.received_number = 0
         self.update_thread = threading.Thread(target=self._update_data_from_server_b, daemon=True)
         self.update_thread.start()
         print("Started background thread to fetch data from Server B.")
@@ -156,9 +156,9 @@ class App:
                     data = response.json()
                     self.received_number = data.get('number')
                 else:
-                    self.received_number = None
+                    self.received_number = 0
             except requests.exceptions.RequestException:
-                self.received_number = None
+                self.received_number = 0
             
             time.sleep(2)
 
@@ -212,8 +212,8 @@ class App:
                    cv.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 0), 2)
         
         if self.received_number is not None:
-            cv.putText(cv_image, f"Server B Data: {self.received_number}", (20, 80),
-                       cv.FONT_HERSHEY_SIMPLEX, 1, (255, 0, 0), 2)
+            cv.putText(cv_image , f"Ipad Data: {self.received_number}", (20, 80),
+            cv.FONT_HERSHEY_SIMPLEX, 1, (255, 0, 0), 2)
 
         cv.imshow('Smart Pauser', cv_image)
         k = cv.waitKey(1) & 0xff
@@ -223,7 +223,7 @@ class App:
             exit(0)
 
     def control_playback(self, yaw):
-        is_paying_attention = self.yaw_lower_bound < yaw < self.yaw_upper_bound
+        is_paying_attention = self.yaw_lower_bound < yaw < self.yaw_upper_bound or self.received_number
         if is_paying_attention:
             if self.video_state == 'PAUSED':
                 self.send_data(f"Time Locked {self.time_locked}, Time Geeked: {self.time_geeked}, Max Geek: {self.max_geek}, Num Geeked: {self.num_geeked}" + "\n")

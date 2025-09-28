@@ -249,16 +249,26 @@ class AppRunner:
             self.log(f"[ERROR] Failed to send command '{command}': {e}\n")
     
     def pause_script(self):
-        self.send_command("pause")
-        self.status_label.config(text="Status: Paused", fg="orange")
-        self.pause_button.config(state=tk.DISABLED)
-        self.resume_button.config(state=tk.NORMAL)
+        if not self.process or self.process.poll() is not None:
+            return
+        try:
+            self.process.send_signal(signal.SIGSTOP)
+            self.log("[INFO] Paused.\n")
+            self.pause_button.config(state=tk.DISABLED)
+            self.resume_button.config(state=tk.NORMAL)
+        except Exception as e:
+            self.log(f"[ERROR] Pause failed: {e}\n")
 
     def resume_script(self):
-        self.send_command("resume")
-        self.status_label.config(text="Status: Running", fg="blue")
-        self.resume_button.config(state=tk.DISABLED)
-        self.pause_button.config(state=tk.NORMAL)
+        if not self.process or self.process.poll() is not None:
+            return
+        try:
+            self.process.send_signal(signal.SIGCONT)
+            self.log("[INFO] Resumed.\n")
+            self.resume_button.config(state=tk.DISABLED)
+            self.pause_button.config(state=tk.NORMAL)
+        except Exception as e:
+            self.log(f"[ERROR] Resume failed: {e}\n")
 
     def kill_script(self):
         """Initiates a shutdown of the client process and cleans up all resources."""
