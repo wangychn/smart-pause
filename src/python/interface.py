@@ -14,7 +14,7 @@ SCRIPT_DIR = os.path.dirname(os.path.realpath(__file__))
 # IMPORTANT: This now points to the new socket-based CLIENT script
 PAUSE_SCRIPT = os.path.join(SCRIPT_DIR, "pause.py")
 CALIBRATE_SCRIPT = os.path.join(SCRIPT_DIR, "calibrate.py")
-SOCKET_HOST = "127.0.0.1"
+SOCKET_HOST = "0.0.0.0"
 SOCKET_PORT = 65432
 
 

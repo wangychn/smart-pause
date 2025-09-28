@@ -18,7 +18,8 @@ import os, traceback
 import socket
 stop_event = threading.Event()
 accl_ref = None  # so we can stop it later if API allows
-HOST = '127.0.0.1'  # Localhost
+SERVER_A_IP = '127.0.0.1'
+SERVER_B_IP = '172.29.112.216'
 PORT = 65432  
 # --- Part 1: The "Eyes" - Head Pose Estimation ---
 def get_head_pose(landmarks, frame_shape):
@@ -139,13 +140,27 @@ class App:
         self.max_geek = 0.0
         self.pause_start = time.time()
                 # Initialize socket
-        self.socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        self.socket.connect((HOST, PORT))  # connect to the server (host, port)
+
+        self.server_addresses = {'Server A': (SERVER_A_IP, PORT), 'Server B': (SERVER_B_IP, PORT)}
+        self.sockets_to_monitor = []
+        self.socket_map = {}
+        # for name, address in server_addresses.items():
+        #     client_socket = socket.soket(socket.AF_INET, socket.SOCK_STREAM)
+        #     client_socket.setblocking(False)'
+        #     err = client_socket.connect_ex(address)
+        #     sockets_to_monitor.append(client_socket)
+        #     socket_map[client_socket] = name
+        self.socket_server_a = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        self.socket_server_a.connect((SERVER_A_IP, PORT))  # connect to the server (host, port)
+        self.socket_server_b = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        self.socket_server_b.connect((SERVER_B_IP, PORT))  # connect to the server (host, port)
+        print("connected")
+        print("clients connected")
 
     def send_data(self, data):
         """Helper method to send data over the socket."""
         try:
-            self.socket.sendall(data.encode('utf-8'))
+            self.socket_server_a.sendall(data.encode('utf-8'))
         except Exception as e:
             print(f"Error sending data: {e}")
 
@@ -216,9 +231,13 @@ class App:
 
     def control_playback(self, yaw):
         is_paying_attention = yaw < self.yaw_upper_bound and yaw > self.yaw_lower_bound
+        data = ""
+        data = self.socket_server_b.recv(1024)
+        if data:
+            received_number = data.decode('utf-8')
+            print(f"Received {received_number}")
         # print(is_paying_attention)
         if is_paying_attention:
-            
             if self.video_state == 'PAUSED':
                 self.send_data(f"Resuming video... Time Locked {self.time_locked}, Time Geeked: {self.time_geeked}, Max Geek: {self.max_geek}, Num Geeked: {self.num_geeked}")
                 self.last_seen_paying_attention = time.time()
