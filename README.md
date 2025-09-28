@@ -42,7 +42,7 @@ It uses real-time **facial landmark tracking** (via Memryx acceleration + FDLite
 
 ### 1. Clone repo
 ```bash
-git clone https://github.com/yourusername/smart-pause.git
+git clone https://github.com/wangychn/smart-pause.git
 cd smart-pause
 ```
 
