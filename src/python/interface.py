@@ -1,5 +1,6 @@
 import tkinter as tk
 from tkinter.scrolledtext import ScrolledText
+<<<<<<< HEAD
 import subprocess
 import sys
 import os
@@ -158,41 +159,108 @@ if __name__ == "__main__":
     root.mainloop()
 
 =======
+=======
+import subprocess, sys, os, signal, threading, queue
+>>>>>>> 5ac9cff (Working UI)
 
-# Path to the script you want to run
 SCRIPT = os.path.join(os.path.dirname(__file__), "pause.py")
-# SCRIPT = os.path.join(os.path.dirname(__file__), "test.py")
+
+proc = None
+out_q: "queue.Queue[str|None]" = queue.Queue()
+
+def reader_thread(p: subprocess.Popen, q: "queue.Queue"):
+    # Stream stdout without blocking the Tk thread
+    try:
+        for line in p.stdout:
+            q.put(line)
+    finally:
+        q.put(None)  # sentinel: process ended
 
 def run_script():
-    # Disable button during run
+    global proc
     start_button.config(state=tk.DISABLED)
+    pause_button.config(state=tk.NORMAL)
+    resume_button.config(state=tk.DISABLED)
     text_output.config(state="normal")
     text_output.delete("1.0", tk.END)
 
     try:
-        result = subprocess.run(
+        proc = subprocess.Popen(
             [sys.executable, SCRIPT],
-            capture_output=True,
-            text=True
+            stdout=subprocess.PIPE,
+            stderr=subprocess.STDOUT,
+            text=True,
+            bufsize=1  # line-buffered
         )
-        text_output.insert(tk.END, result.stdout)
-        text_output.insert(tk.END, f"\n[Exited with code {result.returncode}]\n")
+        threading.Thread(target=reader_thread, args=(proc, out_q), daemon=True).start()
+        root.after(50, pump_output)
     except Exception as e:
         text_output.insert(tk.END, f"Error: {e}\n")
-    finally:
         text_output.config(state="disabled")
         start_button.config(state=tk.NORMAL)
 
-# GUI setup
+def pump_output():
+    """Non-blocking UI updater: drain the queue."""
+    if proc is None:
+        return
+    try:
+        while True:
+            line = out_q.get_nowait()
+            if line is None:
+                # process finished
+                rc = proc.poll()
+                text_output.insert(tk.END, f"\n[Exited with code {rc}]\n")
+                text_output.config(state="disabled")
+                start_button.config(state=tk.NORMAL)
+                return
+            text_output.insert(tk.END, line)
+            text_output.see(tk.END)
+    except queue.Empty:
+        pass
+    # keep polling
+    root.after(50, pump_output)
+
+def pause_script():
+    if proc and proc.poll() is None:
+        proc.send_signal(signal.SIGSTOP)
+        text_output.insert(tk.END, "\n[Process Paused]\n"); text_output.see(tk.END)
+        # toggle buttons
+        pause_button.config(state=tk.DISABLED)
+        resume_button.config(state=tk.NORMAL)
+
+def resume_script():
+    if proc and proc.poll() is None:
+        proc.send_signal(signal.SIGCONT)
+        text_output.insert(tk.END, "\n[Process Resumed]\n"); text_output.see(tk.END)
+        # toggle buttons
+        resume_button.config(state=tk.DISABLED)
+        pause_button.config(state=tk.NORMAL)
+
+def kill_script():
+    if proc and proc.poll() is None:
+        proc.terminate()  # or proc.kill()
+        text_output.insert(tk.END, "\n[Process Terminated]\n"); text_output.see(tk.END)
+
+def stop_program():
+    kill_script()
+    root.destroy()
+
+# --- GUI setup ---
 root = tk.Tk()
-root.title("Blocking Subprocess Example")
+root.title("Subprocess Controller")
 root.geometry("600x400")
 
-start_button = tk.Button(root, text="Run Script", command=run_script)
-start_button.pack(pady=10)
+start_button  = tk.Button(root, text="Run Script",   command=run_script);   start_button.pack(pady=5)
+pause_button  = tk.Button(root, text="Pause Script", command=pause_script); pause_button.pack(pady=5)
+resume_button = tk.Button(root, text="Resume Script",command=resume_script);resume_button.pack(pady=5)
+kill_button   = tk.Button(root, text="Kill Script",  command=kill_script);  kill_button.pack(pady=5)
+quit_button   = tk.Button(root, text="Quit",         command=stop_program); quit_button.pack(pady=5)
 
-text_output = ScrolledText(root, height=20, width=80, state="disabled")
+text_output = ScrolledText(root, height=15, width=80, state="normal")
 text_output.pack(padx=10, pady=10, fill=tk.BOTH, expand=True)
 
 root.mainloop()
+<<<<<<< HEAD
 >>>>>>> 82334f5 (changed interface file)
+=======
+>>>>>>> 5ac9cff (Working UI)

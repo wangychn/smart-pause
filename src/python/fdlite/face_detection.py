@@ -103,7 +103,7 @@ class FaceDetectionMXA:
         regressor_16 = np.expand_dims(outputs[3], 0)
         
         # Run Post-Process Inference
-        post_model_path = "../../models/model_0_blaze_face_short_range_post.tflite"
+        post_model_path = "models/model_0_blaze_face_short_range_post.tflite"
         self.interpreter = tf.lite.Interpreter(model_path=post_model_path)
         self.interpreter.allocate_tensors()
         

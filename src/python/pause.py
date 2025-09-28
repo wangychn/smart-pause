@@ -12,6 +12,12 @@ from fdlite import FaceDetectionMXA, FaceLandmarkMXA
 from fdlite.render import Colors, landmarks_to_render_data, render_to_image
 from memryx import AsyncAccl
 
+import threading
+import signal
+import os, traceback
+
+stop_event = threading.Event()
+accl_ref = None  # so we can stop it later if API allows
 
 # --- Part 1: The "Eyes" - Head Pose Estimation ---
 def get_head_pose(landmarks, frame_shape):
@@ -214,12 +220,43 @@ class App:
 
 
 def run_mxa(dfp):
-    accl = AsyncAccl(dfp)
-    accl.connect_input(app.generate_frame_face)
-    accl.connect_input(app.generate_frame_landmark, 1)
-    accl.connect_output(app.process_face)
-    accl.connect_output(app.process_landmark, 1)
-    accl.wait()
+    global accl_ref
+    try:
+        print(f"[run_mxa] loading DFP: {dfp}  exists={os.path.exists(dfp)}")
+        accl = AsyncAccl(dfp)
+        accl_ref = accl
+
+        # connect IO
+        accl.connect_input(app.generate_frame_face)              # input 0
+        accl.connect_input(app.generate_frame_landmark, 1)       # input 1
+        accl.connect_output(app.process_face)                    # output 0
+        accl.connect_output(app.process_landmark, 1)             # output 1
+
+        print("[run_mxa] entering wait()")
+        accl.wait()  # blocks inside the worker thread
+        print("[run_mxa] wait() returned (pipeline ended)")
+
+    except Exception as e:
+        print("[run_mxa] EXCEPTION:", e)
+        traceback.print_exc()
+    finally:
+        print("[run_mxa] cleanup")
+        cv.destroyAllWindows()
+
+def start_pipeline(dfp_path):
+    t = threading.Thread(target=run_mxa, args=(dfp_path,), daemon=True)
+    t.start()
+    return t
+
+def stop_pipeline():
+    # best-effort shutdown; use the right API if Memryx exposes one
+    # e.g., accl_ref.stop() / accl_ref.close() / accl_ref.shutdown()
+    # fallback: release camera & exit process
+    try:
+        if accl_ref:
+            pass  # call the real stop if available
+    finally:
+        cv.destroyAllWindows()
 
 
 if __name__ == '__main__':
@@ -238,13 +275,20 @@ if __name__ == '__main__':
         exit()
 
     app = App(cam, calibrated_yaw )
-    dfp_path = "../../models/models.dfp"
+    dfp_path = "models/models.dfp"
 
     print("Starting Smart Pauser. Press 'ESC' in the display window to quit.")
-    print("Switching windows in 3 seconds...")
-    time.sleep(3)
+    print("Switching windows momentarily...")
+    time.sleep(1)
   
-    run_mxa(dfp_path)
+    print("Starting Smart Pauser…")
+    thread = start_pipeline(dfp_path)
+
+    try:
+        while thread.is_alive():
+            time.sleep(0.1)
+    except KeyboardInterrupt:
+        stop_pipeline()
 
     cam.release()
     cv.destroyAllWindows()
